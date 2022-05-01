@@ -5,52 +5,57 @@ pipeline {
 
     tools {
         // Install the Maven version configured as "M3" and add it to the path.
-        jdk 'myjava'
-        maven 'mymaven'
+        maven "mymaven"
+        jdk "myjava"
     }
 
     stages {
         stage('Compile') {
             agent any
             steps {
-                script{
-                    git 'https://github.com/devops-trainer/DevOpsClassCodes.git'
-                   gv = load "script.groovy"
-                    gv.compile()
-                }
-                
+                // Get some code from a GitHub repository
+                git 'https://github.com/srinivoleti/DevOpsClassCodes.git'
+
+                // Run Maven on a Unix agent.
+                sh "mvn compile"
+                // To run Maven on a Windows agent, use
+                // bat "mvn -Dmaven.test.failure.ignore=true clean package"
             }
-        }
-        stage('UnitTest') {
-           
+            }
+        stage('CodeReview'){
             agent any
             steps {
-               script{
-                  gv = load "script.groovy"
-                   gv.UnitTest()
-               }
-                
+                sh "mvn pmd:pmd"
             }
-           
-        }
-        stage('Package') {
+            }
+         stage('UnitTest'){
             agent any
             steps {
-                script{
-                      gv = load "script.groovy"
-                    gv.package()
-                }
-                
+                sh "mvn test"
             }
-         
+            post{
+                always{
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
         }
-        stage('Build docker image'){
+         stage('MetricCheck'){
             agent any
-            steps{
-                script{
-                    
-    }
-}
+            steps {
+                sh "mvn cobertura:cobertura -Dcobertura.report.format=xml"
+            }
+            post{
+                always{
+                    cobertura coberturaReportFile: 'target/site/cobertura/coverage.xml'
+                }
+            }
+        }
+         stage('Package'){
+            agent {label 'Ubuntu_Slave'}
+            steps {
+                git 'https://github.com/srinivoleti/DevOpsClassCodes.git'
+                sh "mvn package"
+            }
+        }
         }
     }
-}
